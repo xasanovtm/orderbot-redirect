@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Order Bot SAP</title>
+  <style>
+    :root { color-scheme: light dark; }
+    html, body {
+      margin: 0; padding: 0; height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
+      background: var(--tg-theme-bg-color, #0e1621);
+      color: var(--tg-theme-text-color, #e8eef7);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .box { text-align: center; padding: 24px; max-width: 360px; }
+    .spinner {
+      width: 36px; height: 36px; margin: 0 auto 16px;
+      border: 3px solid rgba(255,255,255,0.15);
+      border-top-color: var(--tg-theme-button-color, #3a9cff);
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    h1 { font-size: 16px; font-weight: 500; margin: 0 0 6px; }
+    p  { font-size: 13px; opacity: 0.7; margin: 0; }
+    .error { color: #ff6b6b; }
+    a { color: var(--tg-theme-link-color, #3a9cff); }
+  </style>
+</head>
+<body>
+  <div class="box" id="box">
+    <div class="spinner"></div>
+    <h1>Подключение к Order Bot…</h1>
+    <p>Загружаем актуальный адрес приложения</p>
+  </div>
+
+  <script>
+    (function () {
+      // Куда сходить за свежим URL. Берём raw.githubusercontent.com:
+      //  - CORS разрешён;
+      //  - кэш короче, чем у GitHub Pages;
+      //  - cache-bust через query всё равно не повредит.
+      // Если этот index.html лежит в репо xasanovtm/orderbot-redirect,
+      // то относительный путь 'current-url.json' тоже сработает — fallback ниже.
+      var OWNER = 'xasanovtm';
+      var REPO  = 'orderbot-redirect';
+      var BRANCH = 'main';
+      var FILE  = 'current-url.json';
+
+      var bust = '?t=' + Date.now();
+      var primary = 'https://raw.githubusercontent.com/' + OWNER + '/' + REPO + '/' + BRANCH + '/' + FILE + bust;
+      var fallback = FILE + bust;
+
+      function showError(msg) {
+        var box = document.getElementById('box');
+        box.innerHTML =
+          '<h1 class="error">Бот недоступен</h1>' +
+          '<p>' + msg + '</p>' +
+          '<p style="margin-top:12px"><a href="javascript:location.reload()">Повторить</a></p>';
+      }
+
+      function go(target) {
+        try {
+          var u = new URL(target);
+          // Пробрасываем initData Telegram WebApp (query + hash).
+          var incoming = new URLSearchParams(location.search);
+          incoming.forEach(function (v, k) { u.searchParams.set(k, v); });
+          if (location.hash) u.hash = location.hash;
+          location.replace(u.toString());
+        } catch (e) {
+          showError('Некорректный адрес: ' + target);
+        }
+      }
+
+      function tryFetch(url) {
+        return fetch(url, { cache: 'no-store' }).then(function (r) {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.json();
+        });
+      }
+
+      tryFetch(primary)
+        .catch(function () { return tryFetch(fallback); })
+        .then(function (data) {
+          if (!data || !data.url) throw new Error('пустой url');
+          go(data.url);
+        })
+        .catch(function (e) {
+          showError('Не удалось получить адрес туннеля (' + e.message + ').<br>Проверьте, что бэкенд запущен.');
+        });
+    })();
+  </script>
+</body>
+</html>
